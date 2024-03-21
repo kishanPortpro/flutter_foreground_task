@@ -12,7 +12,9 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import com.pravera.flutter_foreground_task.models.*
 import com.pravera.flutter_foreground_task.utils.ForegroundServiceUtils
 import io.flutter.FlutterInjector
@@ -34,13 +36,13 @@ import kotlin.system.exitProcess
  */
 class ForegroundService : Service(), MethodChannel.MethodCallHandler {
 	companion object {
-        private val TAG = ForegroundService::class.java.simpleName
-        private const val ACTION_TASK_START = "onStart"
-        private const val ACTION_TASK_REPEAT_EVENT = "onRepeatEvent"
-        private const val ACTION_TASK_DESTROY = "onDestroy"
-        private const val ACTION_NOTIFICATION_BUTTON_PRESSED = "onNotificationButtonPressed"
-        private const val ACTION_NOTIFICATION_PRESSED = "onNotificationPressed"
-        private const val DATA_FIELD_NAME = "data"
+		private val TAG = ForegroundService::class.java.simpleName
+		private const val ACTION_TASK_START = "onStart"
+		private const val ACTION_TASK_REPEAT_EVENT = "onRepeatEvent"
+		private const val ACTION_TASK_DESTROY = "onDestroy"
+		private const val ACTION_NOTIFICATION_BUTTON_PRESSED = "onNotificationButtonPressed"
+		private const val ACTION_NOTIFICATION_PRESSED = "onNotificationPressed"
+		private const val DATA_FIELD_NAME = "data"
 
 		/** Returns whether the foreground service is running. */
 		var isRunningService = false
@@ -196,14 +198,14 @@ class ForegroundService : Service(), MethodChannel.MethodCallHandler {
 		// notification icon
 		val iconData = notificationOptions.iconData
 		val iconBackgroundColor: Int?
-        val iconResId: Int
-        if (iconData != null) {
-            iconBackgroundColor = iconData.backgroundColorRgb?.let(::getRgbColor)
-            iconResId = getIconResIdFromIconData(iconData)
-        } else {
-            iconBackgroundColor = null
-            iconResId = getIconResIdFromAppInfo(pm)
-        }
+		val iconResId: Int
+		if (iconData != null) {
+			iconBackgroundColor = iconData.backgroundColorRgb?.let(::getRgbColor)
+			iconResId = getIconResIdFromIconData(iconData)
+		} else {
+			iconBackgroundColor = null
+			iconResId = getIconResIdFromAppInfo(pm)
+		}
 
 		// notification intent
 		val pendingIntent = getPendingIntent(pm)
@@ -241,7 +243,18 @@ class ForegroundService : Service(), MethodChannel.MethodCallHandler {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
 				builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
 			}
-			startForeground(notificationOptions.id, builder.build())
+
+			if(notificationOptions.permissionTypes > 0) {
+				ServiceCompat.startForeground(
+						this,
+						notificationOptions.id,
+						builder.build(),
+						notificationOptions.permissionTypes
+				)
+			} else {
+				startForeground(notificationOptions.id, builder.build())
+			}
+
 		} else {
 			val builder = NotificationCompat.Builder(this, channelId)
 			builder.setOngoing(true)
@@ -318,7 +331,7 @@ class ForegroundService : Service(), MethodChannel.MethodCallHandler {
 	}
 
 	@SuppressLint("UnspecifiedImmutableFlag")
-    private fun setRestartAlarm() {
+	private fun setRestartAlarm() {
 		val calendar = Calendar.getInstance().apply {
 			timeInMillis = System.currentTimeMillis()
 			add(Calendar.SECOND, 1)
@@ -466,9 +479,9 @@ class ForegroundService : Service(), MethodChannel.MethodCallHandler {
 	}
 
 	@SuppressLint("UnspecifiedImmutableFlag")
-    private fun getPendingIntent(pm: PackageManager): PendingIntent {
+	private fun getPendingIntent(pm: PackageManager): PendingIntent {
 		return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-            || ForegroundServiceUtils.canDrawOverlays(applicationContext)) {
+				|| ForegroundServiceUtils.canDrawOverlays(applicationContext)) {
 			val pressedIntent = Intent(ACTION_NOTIFICATION_PRESSED)
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 				PendingIntent.getBroadcast(this, 20000, pressedIntent, PendingIntent.FLAG_IMMUTABLE)
@@ -505,7 +518,7 @@ class ForegroundService : Service(), MethodChannel.MethodCallHandler {
 	}
 
 	@SuppressLint("UnspecifiedImmutableFlag")
-    private fun buildButtonActions(): List<Notification.Action> {
+	private fun buildButtonActions(): List<Notification.Action> {
 		val actions = mutableListOf<Notification.Action>()
 		val buttons = notificationOptions.buttons
 		for (i in buttons.indices) {
@@ -531,7 +544,7 @@ class ForegroundService : Service(), MethodChannel.MethodCallHandler {
 	}
 
 	@SuppressLint("UnspecifiedImmutableFlag")
-    private fun buildButtonCompatActions(): List<NotificationCompat.Action> {
+	private fun buildButtonCompatActions(): List<NotificationCompat.Action> {
 		val actions = mutableListOf<NotificationCompat.Action>()
 		val buttons = notificationOptions.buttons
 		for (i in buttons.indices) {
